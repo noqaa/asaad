@@ -1,4 +1,4 @@
-const CACHE_NAME = 'exam-paper-v1';
+const CACHE_NAME = 'exam-paper-v2';
 const ASSETS = [
   './index.html',
   './manifest.json',

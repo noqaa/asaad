@@ -1,0 +1,22 @@
+{
+  "name": "ورقة الأسئلة",
+  "short_name": "ورقة الأسئلة",
+  "description": "تطبيق إعداد وتصميم أوراق الأسئلة الامتحانية",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eceef3",
+  "theme_color": "#2347c5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

@@ -1,6 +1,69 @@
 <!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ورقة الأسئلة</title>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>ورقة الأسئلة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2347c5">
+
+<!-- أيقونات الموقع والـ PWA -->
+<link rel="icon" href="logo.jpg">
+<link rel="apple-touch-icon" href="logo.jpg">
+
+<!-- توليد PWA Manifest و Service Worker داخل نفس الصفحة -->
+<script>
+(function() {
+  // 1. إنشاء PWA Manifest برمجياً
+  const manifestData = {
+    "name": "ورقة الأسئلة",
+    "short_name": "ورقة الأسئلة",
+    "description": "تطبيق إعداد وتصميم أوراق الأسئلة الامتحانية",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#eceef3",
+    "theme_color": "#2347c5",
+    "icons": [
+      {
+        "src": "logo.jpg",
+        "sizes": "192x192 512x512",
+        "type": "image/jpeg"
+      }
+    ]
+  };
+  const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+  const manifestURL = URL.createObjectURL(manifestBlob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = manifestURL;
+  document.head.appendChild(link);
+
+  // 2. تسجيل Service Worker مدمج
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      const CACHE_NAME = 'exam-paper-single-v1';
+      self.addEventListener('install', (e) => {
+        self.skipWaiting();
+      });
+      self.addEventListener('activate', (e) => {
+        e.waitUntil(self.clients.claim());
+      });
+      self.addEventListener('fetch', (e) => {
+        e.respondWith(
+          fetch(e.request).catch(() => caches.match(e.request))
+        );
+      });
+    `;
+    const swBlob = new Blob([swCode], { type: 'text/javascript' });
+    const swURL = URL.createObjectURL(swBlob);
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register(swURL, { scope: './' }).catch(err => {
+        console.warn('SW registration skipped or not supported:', err);
+      });
+    });
+  }
+})();
+</script>
+
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Cairo:wght@400;700&family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Almarai:wght@400;700&display=swap">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
@@ -22,7 +85,7 @@ span.material-icons-outlined{font-size:20px;vertical-align:middle}
 .pages{display:flex;flex-direction:column;gap:20px;width:794px}
 .page{--pa:#2347c5;--dk:#16318f;--soft:#e8edfb;--pl:#aebce8;position:relative;width:794px;height:1123px;flex:none;padding:54px 48px 26px;background:#fff;color:#15171c;font-size:var(--pfs,17px);line-height:var(--lh,1.75);direction:rtl;text-align:right;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.12)}
 .strip{position:absolute;left:0;right:0;top:0;height:14px;background:var(--pa)}
-.frm{position:absolute;left:22px;right:22px;top:30px;bottom:14px;border:1.5px solid var(--pl);border-radius:9px}
+.frm{position:absolute;left:22px;right:22px;top:30px;bottom:14px;border:1.5px solid var(--pl);border-radius:99px}
 .pb{position:relative;flex:1;min-height:0;overflow:hidden}
 .pf{position:relative;text-align:center;font-size:12.5px;font-weight:600;color:var(--dk);border-top:2px solid var(--pl);padding-top:6px;margin-top:8px}
 .mini{display:flex;justify-content:space-between;border-bottom:2px solid var(--pa);padding-bottom:4px;font-size:.88em;font-weight:700;color:var(--dk)}
@@ -64,7 +127,8 @@ span.material-icons-outlined{font-size:20px;vertical-align:middle}
 .ib{@apply w-8 h-8 rounded-lg grid place-items-center text-mu hover:bg-sf hover:text-fg disabled:opacity-30 cursor-pointer}
 .card{@apply rounded-2xl border border-ln bg-sf p-4}
 .card>summary{@apply cursor-pointer font-semibold text-[15px] select-none}
-</style></head>
+</style>
+</head>
 <body>
 <header class="sticky z-20 bg-sf border-b border-ln" style="top:env(safe-area-inset-top,0px)">
  <div class="max-w-[1280px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
@@ -246,4 +310,5 @@ bind();renderQ();paginate();loadFont();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(paginate);
 });
 </script>
-</body></html>
+</body>
+</html>

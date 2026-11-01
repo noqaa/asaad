@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>طلبتي</title>
+<meta name="description" content="طلبتي — تطبيق لإدارة طلاب المدرس الخصوصي وجدول الدروس الأسبوعي">
+<meta name="theme-color" content="#eef2ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="طلبتي">
+<link rel="apple-touch-icon" href="logo.jpg">
+<link rel="icon" href="logo.jpg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+const APP_CONFIG = {
+  name: 'طلبتي',
+  version: '1.0.0',
+  accent: 'indigo',
+  storagePrefix: 'talabati:',
+  themeColors: { light: '#eef2ff', dark: '#09090b' }
+};
+const PALETTES = {
+  indigo:  {50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81',950:'#1e1b4b'},
+  emerald: {50:'#ecfdf5',100:'#d1fae5',200:'#a7f3d0',300:'#6ee7b7',400:'#34d399',500:'#10b981',600:'#059669',700:'#047857',800:'#065f46',900:'#064e3b',950:'#022c22'},
+  violet:  {50:'#f5f3ff',100:'#ede9fe',200:'#ddd6fe',300:'#c4b5fd',400:'#a78bfa',500:'#8b5cf6',600:'#7c3aed',700:'#6d28d9',800:'#5b21b6',900:'#4c1d95',950:'#2e1065'}
+};
+(function () {
+  try {
+    var p = PALETTES[APP_CONFIG.accent];
+    var st = document.documentElement.style;
+    st.setProperty('--accent', p[500]);
+    st.setProperty('--accent-dark', p[400]);
+    var t = null;
+    try { t = localStorage.getItem(APP_CONFIG.storagePrefix + 'theme'); } catch (e) {}
+    var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? APP_CONFIG.themeColors.dark : APP_CONFIG.themeColors.light);
+  } catch (e) {}
+})();
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { fontFamily: { sans: ['Tajawal', 'system-ui', 'sans-serif'] }, colors: { accent: PALETTES[APP_CONFIG.accent] } } }
+};
+</script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+  body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dark :focus-visible { outline-color: var(--accent-dark); }
+  .fade-in { animation: fadeIn .22s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .shake { animation: shake .32s ease; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .stripe { background-image: repeating-linear-gradient(45deg, rgba(100,116,139,.2) 0 6px, transparent 6px 12px); }
+  .toast-out { opacity: 0; transform: translateY(-6px); }
+  input[type=date], input[type=search] { text-align: start; }
+  #printRoot { display: none; }
+  .pr-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #4f46e5; padding-bottom: 6px; margin-bottom: 8px; }
+  .pr-head h1 { font-size: 20px; font-weight: 800; color: #4338ca; margin: 0; }
+  .pr-head span { font-size: 11px; color: #555; }
+  .pr-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .pr-table th, .pr-table td { border: 1px solid #cbd5e1; text-align: center; vertical-align: middle; padding: 2px 3px; }
+  .pr-table th { background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 800; height: 8mm; }
+  .pr-table td { height: 10mm; font-size: 11px; }
+  .pr-table .hr { width: 16mm; background: #f8fafc; font-weight: 800; color: #475569; }
+  .pr-slot b { display: block; font-size: 12px; font-weight: 800; }
+  .pr-slot small { display: block; font-size: 9px; line-height: 1.35; opacity: .9; }
+  .pr-off { background: repeating-linear-gradient(45deg, #f1f5f9 0 6px, #e2e8f0 6px 12px); color: #64748b; font-weight: 800; font-size: 14px !important; }
+  .pr-sec { margin-top: 10px; page-break-inside: avoid; }
+  .pr-sec h2 { font-size: 13px; font-weight: 800; margin: 0 0 4px; color: #3730a3; }
+  .pr-list { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  .pr-list th, .pr-list td { border: 1px solid #e2e8f0; padding: 3px 6px; text-align: start; }
+  .pr-list th { background: #f8fafc; }
+  @media print {
+    @page { size: A4 landscape; margin: 9mm; }
+    html, body { background: #fff !important; }
+    body > *:not(#printRoot) { display: none !important; }
+    #printRoot { display: block !important; color: #111; font-family: Tajawal, system-ui, sans-serif; direction: rtl; }
+    #printRoot, #printRoot * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .pr-table tr { page-break-inside: avoid; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body class="font-sans min-h-screen antialiased text-slate-800 dark:text-zinc-100 bg-gradient-to-b from-accent-50 via-white to-white dark:from-zinc-950 dark:via-zinc-950 dark:to-zinc-950">
+
+<header class="sticky top-0 z-30 backdrop-blur-md bg-white/75 dark:bg-zinc-950/75 border-b border-slate-200/70 dark:border-zinc-800" style="padding-top:env(safe-area-inset-top)">
+  <div class="max-w-3xl mx-auto px-4 h-14 flex items-center gap-3">
+    <img src="logo.jpg" alt="" class="w-9 h-9 rounded-xl object-cover shadow-sm">
+    <span class="text-xl font-extrabold tracking-tight text-accent-700 dark:text-accent-400">طلبتي</span>
+    <div class="ms-auto flex items-center gap-1">
+      <button type="button" data-act="install" class="js-install hidden inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-xl text-sm font-bold bg-accent-100 text-accent-700 dark:bg-accent-500/15 dark:text-accent-300 transition duration-200 hover:bg-accent-200 dark:hover:bg-accent-500/25" aria-label="تثبيت التطبيق"><i data-lucide="download" class="w-5 h-5"></i><span class="hidden sm:inline">تثبيت</span></button>
+      <button type="button" id="themeBtn" class="inline-flex items-center justify-center w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition duration-200" aria-label="تبديل الوضع الليلي"><i data-lucide="moon" class="w-5 h-5"></i></button>
+    </div>
+  </div>
+</header>
+
+<main id="app" class="max-w-3xl mx-auto px-4 pt-5 pb-36"></main>
+
+<nav class="fixed bottom-0 inset-x-0 z-30 pointer-events-none px-3" style="padding-bottom:calc(env(safe-area-inset-bottom) + .6rem)" aria-label="التنقل الرئيسي">
+  <div id="nav" class="pointer-events-auto mx-auto max-w-md grid grid-cols-4 gap-1 p-1.5 rounded-3xl bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-slate-200/80 dark:border-zinc-800 shadow-xl shadow-slate-900/10 dark:shadow-black/40"></div>
+</nav>
+
+<div id="modalRoot"></div>
+<div id="confirmRoot"></div>
+<div id="toasts" class="fixed inset-x-0 z-[80] flex flex-col items-center gap-2 px-4 pointer-events-none" style="top:calc(env(safe-area-inset-top) + 4rem)" aria-live="polite"></div>
+<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+<div id="printRoot" aria-hidden="true"></div>
+
+<script type="application/json" id="static-data">
+{
+  "stages": [
+    {"id":"p","label":"المرحلة الابتدائية","tone":"emerald"},
+    {"id":"m","label":"المرحلة المتوسطة","tone":"amber"},
+    {"id":"s","label":"المرحلة الثانوية","tone":"rose"}
+  ],
+  "grades": [
+    {"id":"p1","stage":"p","label":"الأول الابتدائي"},
+    {"id":"p2","stage":"p","label":"الثاني الابتدائي"},
+    {"id":"p3","stage":"p","label":"الثالث الابتدائي"},
+    {"id":"p4","stage":"p","label":"الرابع الابتدائي"},
+    {"id":"p5","stage":"p","label":"الخامس الابتدائي"},
+    {"id":"p6","stage":"p","label":"السادس الابتدائي"},
+    {"id":"m1","stage":"m","label":"الأول المتوسط"},
+    {"id":"m2","stage":"m","label":"الثاني المتوسط"},
+    {"id":"m3","stage":"m","label":"الثالث المتوسط"},
+    {"id":"s4","stage":"s","label":"الرابع الثانوي"},
+    {"id":"s5","stage":"s","label":"الخامس الثانوي"},
+    {"id":"s6","stage":"s","label":"السادس الثانوي"}
+  ],
+  "days": [
+    {"id":0,"name":"الأحد","short":"أحد"},
+    {"id":1,"name":"الاثنين","short":"اثنين"},
+    {"id":2,"name":"الثلاثاء","short":"ثلاثاء"},
+    {"id":3,"name":"الأربعاء","short":"أربعاء"},
+    {"id":4,"name":"الخميس","short":"خميس"},
+    {"id":5,"name":"الجمعة","short":"جمعة"},
+    {"id":6,"name":"السبت","short":"سبت"}
+  ],
+  "badges": [
+    {"id":"star","label":"متميز","icon":"star","tone":"amber"},
+    {"id":"up","label":"متطوّر","icon":"trending-up","tone":"emerald"},
+    {"id":"fast","label":"سريع الفهم","icon":"zap","tone":"sky"},
+    {"id":"kind","label":"مهذّب","icon":"heart","tone":"rose"},
+    {"id":"watch","label":"يحتاج متابعة","icon":"triangle-alert","tone":"red"},
+    {"id":"hw","label":"واجبات ناقصة","icon":"book-open","tone":"violet"},
+    {"id":"late","label":"كثير التأخير","icon":"clock","tone":"slate"},
+    {"id":"pay","label":"دفعة معلّقة","icon":"wallet","tone":"amber"}
+  ]
+}
+</script>
+
+<script>
+(function ($) {
+'use strict';
+
+/* ---------- static data & constants ---------- */
+const S = JSON.parse($('#static-data').text());
+const mkTone = c => ({
+  chip: `bg-${c}-100 text-${c}-700 dark:bg-${c}-500/15 dark:text-${c}-300`,
+  block: `bg-${c}-50 border-${c}-300 text-${c}-900 dark:bg-${c}-500/15 dark:border-${c}-500/40 dark:text-${c}-100`
+});
+const TONES = {};
+['emerald', 'amber', 'rose', 'sky', 'violet', 'red', 'slate'].forEach(c => TONES[c] = mkTone(c));
+
+const CARD = 'rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/70 dark:border-zinc-800 shadow-sm shadow-slate-900/5';
+const BTN_P = 'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl font-bold text-white bg-accent-600 hover:bg-accent-700 dark:bg-accent-500 dark:hover:bg-accent-400 dark:text-zinc-950 shadow-sm shadow-accent-600/25 transition duration-200 active:scale-[.98]';
+const BTN_S = 'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 transition duration-200 active:scale-[.98]';
+const BTN_D = 'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl font-bold bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 transition duration-200 active:scale-[.98]';
+const BTN_DX = 'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition duration-200 active:scale-[.98]';
+const ICONBTN = 'inline-flex items-center justify-center w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 transition duration-200';
+const INPUT = 'w-full min-h-[44px] px-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-base focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 focus:border-accent-500 transition duration-200';
+const LBL = 'block text-sm font-bold mb-1.5 text-slate-600 dark:text-zinc-300';
+const ROW_H = 64;
+
+/* ---------- state ---------- */
+let state = defaultState();
+let ui = { view: 'home', day: new Date().getDay(), q: '', grade: '' };
+let deferredPrompt = null;
+
+function defaultState() {
+  return { students: [], slots: [], lessons: [], settings: { daysOff: [5], startHour: 8, endHour: 22 }, meta: { lastExport: null } };
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function readKey(k, def) { try { const r = localStorage.getItem(APP_CONFIG.storagePrefix + k); return r ? JSON.parse(r) : def; } catch (e) { return def; } }
+function writeKey(k, v) { try { localStorage.setItem(APP_CONFIG.storagePrefix + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+function save() { if (!writeKey('data', state)) toast('تعذّر حفظ البيانات في المتصفح', 'error'); }
+
+function gradeById(id) { return S.grades.find(g => g.id === id); }
+function gradeLabel(id) { const g = gradeById(id); return g ? g.label : ''; }
+function stageOf(g) { return S.stages.find(s => s.id === g.stage); }
+function toneOf(gid) { const g = gradeById(gid); return g ? TONES[stageOf(g).tone] : TONES.slate; }
+
+function normalize(d) {
+  const base = defaultState();
+  if (!d || typeof d !== 'object') return base;
+  const arr = x => Array.isArray(x) ? x : [];
+  const int = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
+  base.students = arr(d.students).filter(x => x && x.id && x.name).map(x => ({
+    id: String(x.id), name: String(x.name), grade: gradeById(x.grade) ? x.grade : 'p1',
+    phone: x.phone ? String(x.phone) : '', badges: arr(x.badges).map(String), notes: x.notes ? String(x.notes) : ''
+  }));
+  base.slots = arr(d.slots).filter(x => x && x.id && gradeById(x.grade) && int(x.day, 0, 6) && int(x.s, 0, 23) && int(x.e, 1, 24) && x.e > x.s)
+    .map(x => ({ id: String(x.id), grade: x.grade, day: x.day, s: x.s, e: x.e }));
+  base.lessons = arr(d.lessons).filter(x => x && x.id && gradeById(x.grade) && /^\d{4}-\d{2}-\d{2}$/.test(x.date || '') && int(x.s, 0, 23) && int(x.e, 1, 24) && x.e > x.s)
+    .map(x => ({ id: String(x.id), title: x.title ? String(x.title) : '', grade: x.grade, studentId: x.studentId ? String(x.studentId) : '', date: x.date, s: x.s, e: x.e }));
+  const st = d.settings || {};
+  const off = arr(st.daysOff).filter(v => int(v, 0, 6));
+  base.settings.daysOff = off.length < 7 ? Array.from(new Set(off)) : [5];
+  if (!Array.isArray(st.daysOff)) base.settings.daysOff = [5];
+  if (int(st.startHour, 0, 22)) base.settings.startHour = st.startHour;
+  if (int(st.endHour, 2, 24) && st.endHour > base.settings.startHour + 1) base.settings.endHour = st.endHour;
+  if (d.meta && d.meta.lastExport) base.meta.lastExport = String(d.meta.lastExport);
+  return base;
+}
+
+/* ---------- time helpers ---------- */
+function hLabel(h) { h = Number(h); const ap = (h >= 12 && h < 24) ? 'م' : 'ص'; let x = h % 12; if (x === 0) x = 12; return x + '\u00A0' + ap; }
+function pad(n) { return String(n).padStart(2, '0'); }
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function parseYmd(s) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); if (!m) return null; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? null : d; }
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d, n) { const x = startOfDay(d); x.setDate(x.getDate() + n); return x; }
+function weekDate(dayIdx) { const d = startOfDay(new Date()); d.setDate(d.getDate() - d.getDay() + dayIdx); return d; }
+function dateLabel(d) {
+  try { return new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long' }).format(d); }
+  catch (e) { try { return new Intl.DateTimeFormat('ar', { weekday: 'long', day: 'numeric', month: 'long' }).format(d); } catch (e2) { return ymd(d); } }
+}
+function relDay(d) {
+  const diff = Math.round((startOfDay(d) - startOfDay(new Date())) / 86400000);
+  if (diff === 0) return 'اليوم'; if (diff === 1) return 'غداً'; if (diff === 2) return 'بعد غد';
+  return dateLabel(d);
+}
+function fmtDur(m) {
+  m = Math.max(1, Math.round(m));
+  const h = Math.floor(m / 60), mi = m % 60;
+  const hp = h === 0 ? '' : h === 1 ? 'ساعة' : h === 2 ? 'ساعتين' : (h <= 10 ? h + ' ساعات' : h + ' ساعة');
+  const mp = mi === 0 ? '' : mi === 1 ? 'دقيقة' : mi === 2 ? 'دقيقتين' : (mi <= 10 ? mi + ' دقائق' : mi + ' دقيقة');
+  return [hp, mp].filter(Boolean).join(' و ');
+}
+function hoursText(n) { return n === 1 ? 'ساعة' : n === 2 ? 'ساعتان' : n <= 10 ? n + ' ساعات' : n + ' ساعة'; }
+
+/* ---------- ui helpers ---------- */
+const ic = (n, c) => `<i data-lucide="${n}" class="${c || 'w-5 h-5'}"></i>`;
+function icons() { if (window.lucide) { try { window.lucide.createIcons(); } catch (e) {} } }
+
+function toast(msg, type, opt) {
+  opt = opt || {};
+  const map = { success: ['bg-emerald-600', 'circle-check'], error: ['bg-red-600', 'circle-alert'], info: ['bg-slate-800 dark:bg-zinc-700', 'bell'] };
+  const m = map[type || 'info'];
+  const $t = $(`<div role="status" class="pointer-events-auto flex items-center gap-3 w-full max-w-sm px-4 py-3 rounded-2xl text-white text-sm font-bold shadow-lg transition duration-200 fade-in ${m[0]}">${ic(m[1], 'w-5 h-5 shrink-0')}<span class="flex-1">${esc(msg)}</span>${opt.action ? `<button type="button" data-toast-action class="min-h-[44px] px-2 underline underline-offset-2">${esc(opt.label || 'موافق')}</button>` : ''}</div>`);
+  $('#toasts').append($t); icons();
+  $t.on('click', '[data-toast-action]', () => { opt.action(); $t.remove(); });
+  setTimeout(() => { $t.addClass('toast-out'); setTimeout(() => $t.remove(), 220); }, opt.duration || 3200);
+}
+
+function openModal(title, bodyHtml, onMount) {
+  closeModal();
+  const $m = $(`<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm fade-in" data-close></div>
+    <div class="relative w-full sm:max-w-lg max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl fade-in" style="padding-bottom:env(safe-area-inset-bottom)">
+      <div class="flex items-center justify-between ps-5 pe-3 pt-3 pb-1"><h2 class="text-lg font-extrabold">${esc(title)}</h2><button type="button" data-close class="${ICONBTN}" aria-label="إغلاق">${ic('x')}</button></div>
+      <div class="overflow-y-auto px-5 pb-6 pt-2">${bodyHtml}</div>
+    </div></div>`);
+  $('#modalRoot').append($m);
+  document.body.style.overflow = 'hidden';
+  icons();
+  if (onMount) onMount($m);
+  icons();
+  const $af = $m.find('[data-autofocus]').first(); if ($af.length) setTimeout(() => $af.trigger('focus'), 60);
+}
+function closeModal() { $('#modalRoot').empty(); document.body.style.overflow = ''; }
+function closeConfirm() { $('#confirmRoot').empty(); }
+function askConfirm(title, msg, onOk, okLabel) {
+  const $c = $(`<div class="fixed inset-0 z-[70] flex items-center justify-center p-4" role="alertdialog" aria-modal="true">
+    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm fade-in" data-cclose></div>
+    <div class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl fade-in">
+      <h3 class="text-lg font-extrabold">${esc(title)}</h3>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-zinc-400">${esc(msg)}</p>
+      <div class="mt-5 flex gap-2"><button type="button" data-cok class="${BTN_DX} flex-1">${esc(okLabel || 'تأكيد')}</button><button type="button" data-cclose class="${BTN_S} flex-1">إلغاء</button></div>
+    </div></div>`);
+  $('#confirmRoot').empty().append($c);
+  $c.on('click', '[data-cclose]', closeConfirm);
+  $c.on('click', '[data-cok]', () => { closeConfirm(); onOk(); });
+  $c.find('[data-cclose]').last().trigger('focus');
+}
+
+function gradeOptions(selected, placeholder) {
+  return (placeholder ? `<option value="">${esc(placeholder)}</option>` : '') +
+    S.stages.map(sg => `<optgroup label="${esc(sg.label)}">` + S.grades.filter(g => g.stage === sg.id).map(g => `<option value="${g.id}" ${g.id === selected ? 'selected' : ''}>${esc(g.label)}</option>`).join('') + '</optgroup>').join('');
+}
+function gradeChip(gid, extra) {
+  const g = gradeById(gid); if (!g) return '';
+  return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${toneOf(gid).chip} ${extra || ''}">${esc(g.label)}</span>`;
+}
+function badgeInfo(id) {
+  if (id.indexOf('c:') === 0) return { id, label: id.slice(2), icon: 'tag', tone: 'slate' };
+  return S.badges.find(b => b.id === id) || null;
+}
+function badgeChip(id) {
+  const b = badgeInfo(id); if (!b) return '';
+  return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${TONES[b.tone].chip}">${ic(b.icon, 'w-3.5 h-3.5')}${esc(b.label)}</span>`;
+}
+function studentsIn(gid) { return state.students.filter(x => x.grade === gid); }
+
+/* ---------- schedule model ---------- */
+function eventsOn(date, dormant) {
+  const day = date.getDay(), ds = ymd(date), off = state.settings.daysOff.includes(day), out = [];
+  if (!off || dormant) state.slots.filter(x => x.day === day).forEach(x => out.push({ type: 'slot', id: x.id, grade: x.grade, s: x.s, e: x.e, dormant: off }));
+  state.lessons.filter(x => x.date === ds).forEach(x => out.push({ type: 'custom', id: x.id, grade: x.grade, s: x.s, e: x.e, title: x.title, studentId: x.studentId }));
+  return out.sort((a, b) => a.s - b.s || a.e - b.e);
+}
+function evSub(ev) {
+  if (ev.type === 'custom') {
+    const st = ev.studentId && state.students.find(x => x.id === ev.studentId);
+    return (ev.title || 'درس مخصص') + (st ? ' · ' + st.name : '');
+  }
+  const list = studentsIn(ev.grade);
+  if (!list.length) return 'لا يوجد طلاب في هذا الصف بعد';
+  return list.slice(0, 3).map(x => x.name).join('، ') + (list.length > 3 ? ` +${list.length - 3}` : '');
+}
+function mark(occ, s, e, label) { for (let i = s; i < e; i++) occ[i] = label; }
+function calcRange(occ, sel) {
+  let lo = state.settings.startHour, hi = state.settings.endHour;
+  Object.keys(occ).forEach(k => { k = +k; if (k < lo) lo = k; if (k + 1 > hi) hi = k + 1; });
+  if (sel && sel.s != null) lo = Math.min(lo, sel.s);
+  if (sel && sel.e != null) hi = Math.max(hi, sel.e);
+  return [lo, hi];
+}
+function weeklyHours() { return state.slots.filter(x => !state.settings.daysOff.includes(x.day)).reduce((a, x) => a + (x.e - x.s), 0); }
+
+/* ---------- booking-style hour picker ---------- */
+function makePicker($host, init) {
+  const p = { s: init.s == null ? null : init.s, e: init.e == null ? null : init.e, occ: {}, lo: 8, hi: 22 };
+  p.setContext = function (occ, lo, hi) {
+    p.occ = occ; p.lo = lo; p.hi = hi;
+    if (p.s != null) {
+      let bad = p.s < lo || p.s >= hi || (p.e != null && p.e > hi);
+      const end = p.e != null ? p.e : p.s + 1;
+      for (let i = p.s; i < end && !bad; i++) if (occ[i]) bad = true;
+      if (bad) { p.s = null; p.e = null; }
+    }
+    p.render();
+  };
+  p.get = function () { return (p.s != null && p.e != null) ? { s: p.s, e: p.e } : null; };
+  p.render = function () {
+    let chips = '';
+    for (let x = p.lo; x <= p.hi; x++) {
+      const o = x < p.hi ? p.occ[x] : null;
+      const isS = x === p.s, isE = x === p.e, inR = p.s != null && p.e != null && x > p.s && x < p.e;
+      let cls;
+      if (isS || isE) cls = 'bg-accent-600 text-white border-transparent dark:bg-accent-500 dark:text-zinc-950';
+      else if (inR) cls = 'bg-accent-100 text-accent-800 border-accent-200 dark:bg-accent-500/20 dark:text-accent-300 dark:border-accent-500/30';
+      else if (o) cls = 'stripe text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700';
+      else cls = 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 border-slate-300 dark:border-zinc-700 hover:border-accent-400';
+      chips += `<button type="button" data-h="${x}" aria-pressed="${isS || isE || inR}" aria-label="${hLabel(x)}${o ? ' محجوز' : ''}" class="min-h-[56px] px-1 rounded-xl border text-center transition duration-200 active:scale-95 ${cls}"><span class="block text-base font-extrabold leading-tight">${hLabel(x)}</span>${o ? `<span class="block text-[10px] leading-tight truncate px-1">${esc(o)}</span>` : ''}</button>`;
+    }
+    let sum;
+    if (p.s == null) sum = `${ic('mouse-pointer-click', 'w-4 h-4')}اضغط على ساعة البداية`;
+    else if (p.e == null) sum = `${ic('mouse-pointer-click', 'w-4 h-4')}البداية ${hLabel(p.s)} — اضغط على ساعة النهاية`;
+    else sum = `${ic('circle-check', 'w-4 h-4')}من ${hLabel(p.s)} إلى ${hLabel(p.e)} · ${fmtDur((p.e - p.s) * 60)}`;
+    $host.html(`<div class="mb-3 flex items-center gap-2 px-3 min-h-[44px] rounded-xl bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-300 text-sm font-bold" aria-live="polite">${sum}</div>
+      <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">${chips}</div>
+      <p class="mt-2 text-xs text-slate-500 dark:text-zinc-400">الساعات المخططة محجوزة ولا يمكن اختيارها.</p>`);
+    icons();
+  };
+  function reject(i) {
+    toast(`الساعة ${hLabel(i)} محجوزة — ${p.occ[i]}`, 'error');
+    p.render();
+    $host.find(`[data-h="${i}"]`).addClass('shake');
+  }
+  $host.on('click', '[data-h]', function () {
+    const h = +$(this).attr('data-h');
+    if (p.s == null || p.e != null) {
+      if (h >= p.hi) { toast('هذه آخر ساعة — اختر ساعة بداية قبلها', 'info'); return; }
+      if (p.occ[h]) { reject(h); return; }
+      p.s = h; p.e = null; p.render(); return;
+    }
+    if (h <= p.s) {
+      if (p.occ[h]) { reject(h); return; }
+      p.s = h; p.render(); return;
+    }
+    for (let i = p.s; i < h; i++) if (p.occ[i]) { reject(i); return; }
+    p.e = h; p.render();
+  });
+  return p;
+}
+
+/* ---------- views ---------- */
+function render() {
+  const items = [['home', 'house', 'الرئيسية'], ['schedule', 'calendar-days', 'الجدول'], ['students', 'users', 'الطلاب'], ['settings', 'settings', 'الإعدادات']];
+  $('#nav').html(items.map(i => {
+    const on = ui.view === i[0];
+    return `<button type="button" data-act="go" data-view="${i[0]}" aria-current="${on ? 'page' : 'false'}" class="min-h-[56px] rounded-2xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition duration-200 ${on ? 'bg-accent-100 text-accent-700 dark:bg-accent-500/15 dark:text-accent-300' : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800'}">${ic(i[1], 'w-5 h-5')}${i[2]}</button>`;
+  }).join(''));
+  ({ home: renderHome, schedule: renderSchedule, students: renderStudents, settings: renderSettings })[ui.view]();
+  if (deferredPrompt) $('.js-install').removeClass('hidden');
+  icons();
+}
+
+function renderHome() {
+  const now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
+  const todayOff = state.settings.daysOff.includes(now.getDay());
+  const evs = eventsOn(startOfDay(now));
+  const cur = evs.find(x => x.s * 60 <= nm && nm < x.e * 60);
+  const nxt = evs.find(x => x.s * 60 > nm);
+  let hero = '';
+  const heroWrap = (icon, kicker, title, sub, extra) => `<section class="relative overflow-hidden rounded-3xl p-5 text-white bg-gradient-to-br from-accent-600 to-accent-800 dark:from-accent-500/90 dark:to-accent-800 shadow-lg shadow-accent-600/25 fade-in">
+      <div class="absolute -top-10 -start-10 w-40 h-40 rounded-full bg-white/10"></div><div class="absolute -bottom-12 -end-8 w-36 h-36 rounded-full bg-white/10"></div>
+      <div class="relative"><div class="flex items-center gap-2 text-sm font-bold text-white/80">${ic(icon, 'w-5 h-5')}${kicker}</div>
+      <h2 class="mt-2 text-2xl font-extrabold leading-snug">${title}</h2><p class="mt-1.5 text-white/85 font-medium">${sub}</p>${extra || ''}</div></section>`;
+  if (cur) {
+    const pct = Math.min(100, Math.max(0, ((nm - cur.s * 60) / ((cur.e - cur.s) * 60)) * 100));
+    hero = heroWrap('radio', 'جارٍ الآن', `درسك الآن لصف ${esc(gradeLabel(cur.grade))}`, `ينتهي الساعة ${hLabel(cur.e)} · متبقي ${fmtDur(cur.e * 60 - nm)}`, `<div class="mt-4 h-2 rounded-full bg-white/25 overflow-hidden"><div class="h-full rounded-full bg-white" style="width:${pct}%"></div></div>`);
+  } else if (nxt) {
+    hero = heroWrap('bell-ring', 'الدرس القادم', `عندك درس لصف ${esc(gradeLabel(nxt.grade))} بعد ${fmtDur(nxt.s * 60 - nm)}`, `من ${hLabel(nxt.s)} إلى ${hLabel(nxt.e)}${nxt.type === 'custom' ? ' · درس مخصص' : ''}`);
+  } else {
+    let fut = null;
+    for (let i = 1; i <= 14 && !fut; i++) { const d = addDays(now, i), e2 = eventsOn(d); if (e2.length) fut = { d, ev: e2[0] }; }
+    const kick = todayOff ? 'اليوم عطلتك' : (evs.length ? 'خلصت دروس اليوم' : 'ما عندك دروس اليوم');
+    if (fut) hero = heroWrap(todayOff ? 'coffee' : 'party-popper', kick, `الدرس القادم لصف ${esc(gradeLabel(fut.ev.grade))}`, `${esc(relDay(fut.d))} الساعة ${hLabel(fut.ev.s)} – ${hLabel(fut.ev.e)}`);
+    else hero = heroWrap('calendar-plus', kick, 'جدولك فارغ حالياً', 'ابدأ بإضافة حصص أسبوعية لكل صف من صفحة الجدول.');
+  }
+
+  const stats = `<div class="grid grid-cols-3 gap-3">
+    ${[['users', 'طالب', state.students.length], ['clock', 'ساعات الأسبوع', weeklyHours()], ['book-open', 'دروس اليوم', evs.length]].map(c => `<div class="${CARD} p-3 text-center fade-in"><div class="mx-auto mb-1.5 w-9 h-9 rounded-xl flex items-center justify-center bg-accent-100 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">${ic(c[0], 'w-5 h-5')}</div><div class="text-2xl font-extrabold leading-none">${c[2]}</div><div class="mt-1 text-xs font-bold text-slate-500 dark:text-zinc-400">${c[1]}</div></div>`).join('')}</div>`;
+
+  let list;
+  if (!evs.length) {
+    list = `<div class="${CARD} p-6 text-center text-slate-500 dark:text-zinc-400">${ic(todayOff ? 'coffee' : 'calendar-check', 'w-8 h-8 mx-auto mb-2 text-accent-500')}<p class="font-bold">${todayOff ? 'اليوم عطلة، استمتع بوقتك' : 'لا توجد دروس مجدولة لهذا اليوم'}</p></div>`;
+  } else {
+    list = evs.map(ev => {
+      const past = ev.e * 60 <= nm, isCur = cur && cur.id === ev.id && cur.type === ev.type;
+      return `<button type="button" data-act="edit-ev" data-type="${ev.type}" data-id="${esc(ev.id)}" class="${CARD} w-full text-start p-3 flex gap-3 items-center transition duration-200 hover:shadow-md ${past ? 'opacity-55' : ''} ${isCur ? 'ring-2 ring-accent-500 dark:ring-accent-400' : ''}">
+        <div class="w-[4.5rem] shrink-0 rounded-xl py-2 text-center ${toneOf(ev.grade).chip}"><div class="text-sm font-extrabold">${hLabel(ev.s)}</div><div class="text-[11px] opacity-80">إلى ${hLabel(ev.e)}</div></div>
+        <div class="min-w-0 flex-1"><div class="font-extrabold flex items-center gap-1.5">${ev.type === 'custom' ? ic('sparkles', 'w-4 h-4 text-accent-500') : ''}${esc(gradeLabel(ev.grade))}</div><div class="text-sm text-slate-500 dark:text-zinc-400 truncate">${esc(evSub(ev))}</div></div>
+        ${isCur ? `<span class="text-xs font-extrabold px-2 py-1 rounded-lg bg-accent-100 text-accent-700 dark:bg-accent-500/20 dark:text-accent-300">الآن</span>` : ''}</button>`;
+    }).join('');
+  }
+
+  const onboarding = (!state.students.length && !state.slots.length) ? `<div class="${CARD} p-4 flex gap-3 items-start bg-accent-50/60 dark:bg-accent-500/5">${ic('sparkles', 'w-6 h-6 text-accent-500 shrink-0 mt-0.5')}<div class="text-sm leading-relaxed"><p class="font-extrabold mb-1">بداية سريعة</p><p class="text-slate-600 dark:text-zinc-400">أضف طلابك من صفحة «الطلاب»، ثم حدّد ساعات كل صف من صفحة «الجدول». حدّد يوم عطلتك من «الإعدادات».</p></div></div>` : '';
+
+  $('#app').html(`<div class="space-y-5">
+    <div class="fade-in"><p class="text-sm font-bold text-slate-500 dark:text-zinc-400">${esc(dateLabel(now))}</p><h1 class="text-2xl font-extrabold">أهلاً بك في طلبتي</h1></div>
+    ${hero}${onboarding}${stats}
+    <section><div class="flex items-center justify-between mb-3"><h2 class="text-lg font-extrabold">دروس اليوم</h2><button type="button" data-act="go" data-view="schedule" class="text-sm font-bold text-accent-600 dark:text-accent-400 min-h-[44px] px-2">عرض الجدول</button></div><div class="space-y-2.5">${list}</div></section>
+    <div class="grid grid-cols-2 gap-3"><button type="button" data-act="add-student" class="${BTN_S}">${ic('user-plus')}إضافة طالب</button><button type="button" data-act="add-lesson" class="${BTN_P}">${ic('sparkles')}درس مخصص</button></div>
+  </div>`);
+}
+
+function renderSchedule() {
+  const now = new Date(), dIdx = ui.day, date = weekDate(dIdx), off = state.settings.daysOff.includes(dIdx);
+  const evs = eventsOn(date, true);
+  const occ = {}; evs.forEach(x => mark(occ, x.s, x.e, ''));
+  const rg = calcRange(occ), lo = rg[0], hi = rg[1];
+
+  const tabs = S.days.map(d => {
+    const dt = weekDate(d.id), isOff = state.settings.daysOff.includes(d.id), active = d.id === ui.day, cnt = eventsOn(dt).length;
+    return `<button type="button" data-act="sel-day" data-day="${d.id}" aria-pressed="${active}" class="min-h-[68px] rounded-2xl flex flex-col items-center justify-center gap-0.5 border transition duration-200 ${active ? 'bg-accent-600 text-white border-transparent shadow-md shadow-accent-600/25 dark:bg-accent-500 dark:text-zinc-950' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300'} ${isOff && !active ? 'opacity-60' : ''}">
+      <span class="text-[11px] font-bold">${d.short}</span><span class="text-lg font-extrabold leading-none">${dt.getDate()}</span>
+      ${isOff ? ic('coffee', 'w-3.5 h-3.5') : (cnt ? '<span class="w-1.5 h-1.5 rounded-full bg-current"></span>' : '<span class="h-1.5"></span>')}</button>`;
+  }).join('');
+
+  let labels = '', rows = '', blocks = '';
+  for (let h = lo; h < hi; h++) {
+    labels += `<div class="absolute inset-x-0 text-xs font-bold text-slate-400 dark:text-zinc-500 -translate-y-1/2 text-center" style="top:${(h - lo) * ROW_H}px">${hLabel(h)}</div>`;
+    rows += `<button type="button" data-act="add-at" data-h="${h}" aria-label="إضافة حصة عند ${hLabel(h)}" class="group absolute inset-x-0 border-t border-slate-200/80 dark:border-zinc-800 hover:bg-accent-50/70 dark:hover:bg-accent-500/5 transition duration-200 flex items-center justify-center" style="top:${(h - lo) * ROW_H}px;height:${ROW_H}px"><span class="opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 text-accent-500 transition duration-200">${ic('plus', 'w-5 h-5')}</span></button>`;
+  }
+  evs.forEach(ev => {
+    const t = toneOf(ev.grade), h = (ev.e - ev.s) * ROW_H - 4;
+    const cnt = studentsIn(ev.grade).length;
+    blocks += `<button type="button" data-act="edit-ev" data-type="${ev.type}" data-id="${esc(ev.id)}" class="absolute inset-x-1 z-10 text-start rounded-xl border p-2 overflow-hidden transition duration-200 hover:shadow-md ${t.block} ${ev.type === 'custom' ? 'border-dashed' : ''} ${ev.dormant ? 'opacity-45' : ''}" style="top:${(ev.s - lo) * ROW_H + 2}px;height:${h}px">
+      <div class="flex items-center gap-1.5 text-sm font-extrabold leading-tight">${ev.type === 'custom' ? ic('sparkles', 'w-4 h-4 shrink-0') : ''}<span class="truncate">${esc(gradeLabel(ev.grade))}</span></div>
+      <div class="text-xs font-bold opacity-80 mt-0.5">${hLabel(ev.s)} – ${hLabel(ev.e)}${ev.dormant ? ' · موقوفة (عطلة)' : ''}</div>
+      ${h > 70 ? `<div class="text-xs opacity-80 mt-1 truncate">${ev.type === 'custom' ? esc(ev.title || 'درس مخصص') : cnt + ' طلاب'}</div>` : ''}</button>`;
+  });
+
+  const grid = `<div class="${CARD} p-3"><div class="flex gap-2"><div class="relative w-12 shrink-0" style="height:${(hi - lo) * ROW_H}px">${labels}</div><div class="relative flex-1" style="height:${(hi - lo) * ROW_H}px">${rows}${blocks}</div></div></div>`;
+  const offBanner = off ? `<div class="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 font-bold fade-in">${ic('coffee', 'w-6 h-6 shrink-0')}<span>${esc(S.days[dIdx].name)} يوم عطلتك — لا تُحجز فيه حصص.</span></div>` : '';
+
+  const perGrade = {}; state.slots.filter(x => !state.settings.daysOff.includes(x.day)).forEach(x => perGrade[x.grade] = (perGrade[x.grade] || 0) + (x.e - x.s));
+  const summary = Object.keys(perGrade).length ? `<section class="${CARD} p-4"><h3 class="font-extrabold mb-3 flex items-center gap-2">${ic('timer', 'w-5 h-5 text-accent-500')}ساعات كل صف في الأسبوع</h3><div class="flex flex-wrap gap-2">${S.grades.filter(g => perGrade[g.id]).map(g => `<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${toneOf(g.id).chip}">${esc(g.label)}<span class="opacity-70">· ${hoursText(perGrade[g.id])}</span></span>`).join('')}</div><p class="mt-3 text-sm font-bold text-slate-500 dark:text-zinc-400">المجموع: ${hoursText(weeklyHours())} أسبوعياً</p></section>` : '';
+
+  const today = ymd(startOfDay(now));
+  const ups = state.lessons.filter(x => x.date >= today).sort((a, b) => a.date.localeCompare(b.date) || a.s - b.s);
+  const upHtml = `<section><h3 class="text-lg font-extrabold mb-3 flex items-center gap-2">${ic('sparkles', 'w-5 h-5 text-accent-500')}دروس مخصصة قادمة</h3>${ups.length ? `<div class="space-y-2.5">${ups.map(l => {
+    const st = l.studentId && state.students.find(x => x.id === l.studentId);
+    return `<button type="button" data-act="edit-ev" data-type="custom" data-id="${esc(l.id)}" class="${CARD} w-full text-start p-3 flex items-center gap-3 hover:shadow-md transition duration-200"><div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${toneOf(l.grade).chip}">${ic('sparkles', 'w-5 h-5')}</div><div class="min-w-0 flex-1"><div class="font-extrabold truncate">${esc(l.title || 'درس مخصص')}</div><div class="text-sm text-slate-500 dark:text-zinc-400 truncate">${esc(gradeLabel(l.grade))}${st ? ' · ' + esc(st.name) : ''}</div></div><div class="text-end text-xs font-bold text-slate-500 dark:text-zinc-400 shrink-0"><div>${esc(relDay(parseYmd(l.date)))}</div><div>${hLabel(l.s)} – ${hLabel(l.e)}</div></div></button>`;
+  }).join('')}</div>` : `<p class="text-sm text-slate-500 dark:text-zinc-400">لا توجد دروس مخصصة قادمة. استخدم «درس مخصص» لإضافة درس تأهيلي أو مراجعة لطالب.</p>`}</section>`;
+
+  $('#app').html(`<div class="space-y-5"><div class="flex items-center justify-between gap-3 fade-in"><div><h1 class="text-2xl font-extrabold">الجدول الأسبوعي</h1><p class="text-sm font-bold text-slate-500 dark:text-zinc-400">${esc(dateLabel(date))}</p></div></div>
+    <div class="grid grid-cols-7 gap-1.5 fade-in">${tabs}</div>
+    <div class="grid grid-cols-2 gap-3"><button type="button" data-act="add-slot" class="${BTN_P}">${ic('calendar-plus')}حصة ثابتة</button><button type="button" data-act="add-lesson" class="${BTN_S}">${ic('sparkles')}درس مخصص</button></div>
+    ${offBanner}${(off && !evs.length) ? '' : grid}${summary}${upHtml}</div>`);
+}
+
+function renderStudents() {
+  $('#app').html(`<section class="space-y-4 fade-in">
+    <div class="flex items-center justify-between gap-3"><div><h1 class="text-2xl font-extrabold">الطلاب</h1><p class="text-sm font-bold text-slate-500 dark:text-zinc-400">${state.students.length} طالب</p></div><button type="button" data-act="add-student" class="${BTN_P}">${ic('user-plus')}إضافة طالب</button></div>
+    <div class="grid grid-cols-5 gap-2"><div class="relative col-span-3"><span class="absolute inset-y-0 start-3 flex items-center text-slate-400 pointer-events-none">${ic('search')}</span><input id="stSearch" type="search" value="${esc(ui.q)}" placeholder="ابحث باسم أو ملاحظة" aria-label="بحث" class="${INPUT} ps-10"></div>
+    <select id="stGrade" aria-label="تصفية حسب الصف" class="${INPUT} col-span-2">${gradeOptions(ui.grade, 'كل الصفوف')}</select></div>
+    <div id="stList" class="space-y-5"></div></section>`);
+  renderStudentList();
+}
+function renderStudentList() {
+  const q = ui.q.trim().toLowerCase();
+  let list = state.students.filter(s => (!ui.grade || s.grade === ui.grade) && (!q || s.name.toLowerCase().includes(q) || s.notes.toLowerCase().includes(q)));
+  let html = '';
+  if (!state.students.length) {
+    html = `<div class="${CARD} p-8 text-center"><div class="mx-auto mb-3 w-14 h-14 rounded-2xl flex items-center justify-center bg-accent-100 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">${ic('graduation-cap', 'w-7 h-7')}</div><p class="font-extrabold text-lg">لا يوجد طلاب بعد</p><p class="mt-1 text-sm text-slate-500 dark:text-zinc-400">أضف أول طالب لتبدأ بتنظيم دروسك.</p><button type="button" data-act="add-student" class="${BTN_P} mt-4">${ic('user-plus')}إضافة طالب</button></div>`;
+  } else if (!list.length) {
+    html = `<div class="${CARD} p-8 text-center text-slate-500 dark:text-zinc-400">${ic('search-x', 'w-8 h-8 mx-auto mb-2')}<p class="font-bold">لا توجد نتائج مطابقة</p></div>`;
+  } else {
+    S.grades.forEach(g => {
+      const items = list.filter(s => s.grade === g.id).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+      if (!items.length) return;
+      html += `<div><h2 class="mb-2 flex items-center gap-2 text-sm font-extrabold text-slate-600 dark:text-zinc-300">${gradeChip(g.id)}<span>${items.length}</span></h2><div class="space-y-2.5">${items.map(studentCard).join('')}</div></div>`;
+    });
+  }
+  $('#stList').html(html); icons();
+}
+function studentCard(st) {
+  return `<article class="${CARD} p-4 fade-in"><div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center text-lg font-extrabold ${toneOf(st.grade).chip}">${esc([...st.name][0] || '؟')}</div>
+    <div class="min-w-0 flex-1"><h3 class="font-extrabold truncate">${esc(st.name)}</h3>
+    ${st.phone ? `<a href="tel:${esc(st.phone)}" dir="ltr" class="inline-flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-zinc-400">${ic('phone', 'w-3.5 h-3.5')}${esc(st.phone)}</a>` : ''}
+    ${st.badges.length ? `<div class="flex flex-wrap gap-1.5 mt-2">${st.badges.map(badgeChip).join('')}</div>` : ''}
+    ${st.notes ? `<p class="mt-2 text-sm text-slate-500 dark:text-zinc-400 line-clamp-2">${esc(st.notes)}</p>` : ''}</div>
+    <div class="flex flex-col gap-1 shrink-0"><button type="button" data-act="edit-student" data-id="${esc(st.id)}" class="${ICONBTN}" aria-label="تعديل ${esc(st.name)}">${ic('pencil')}</button><button type="button" data-act="student-lesson" data-id="${esc(st.id)}" class="${ICONBTN}" aria-label="درس مخصص لـ ${esc(st.name)}">${ic('sparkles')}</button></div></div></article>`;
+}
+
+function hourOpts(min, max, sel) { let o = ''; for (let h = min; h <= max; h++) o += `<option value="${h}" ${h === sel ? 'selected' : ''}>${hLabel(h)}</option>`; return o; }
+function renderSettings() {
+  const st = state.settings;
+  const last = state.meta.lastExport ? dateLabel(new Date(state.meta.lastExport)) : 'لم تُنشأ نسخة بعد';
+  $('#app').html(`<div class="space-y-4 fade-in"><h1 class="text-2xl font-extrabold">الإعدادات</h1>
+    <section class="${CARD} p-4"><h2 class="font-extrabold mb-1 flex items-center gap-2">${ic('coffee', 'w-5 h-5 text-accent-500')}أيام العطلة</h2><p class="text-sm text-slate-500 dark:text-zinc-400 mb-3">اختر الأيام التي لا تدرّس فيها. لن تُحجز فيها حصص.</p>
+      <div class="grid grid-cols-7 gap-1.5">${S.days.map(d => { const on = st.daysOff.includes(d.id); return `<button type="button" data-act="toggle-off" data-day="${d.id}" aria-pressed="${on}" class="min-h-[56px] rounded-xl border text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition duration-200 ${on ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/40' : 'bg-white dark:bg-zinc-900 border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'}">${on ? ic('coffee', 'w-4 h-4') : ic('book-open', 'w-4 h-4')}${d.short}</button>`; }).join('')}</div></section>
+    <section class="${CARD} p-4"><h2 class="font-extrabold mb-1 flex items-center gap-2">${ic('clock', 'w-5 h-5 text-accent-500')}ساعات العمل اليومية</h2><p class="text-sm text-slate-500 dark:text-zinc-400 mb-3">النطاق الذي يظهر في الجدول (ثابت لكل أيام الأسبوع).</p>
+      <div class="grid grid-cols-2 gap-3"><div><label class="${LBL}" for="setStart">من</label><select id="setStart" class="${INPUT}">${hourOpts(0, 22, st.startHour)}</select></div><div><label class="${LBL}" for="setEnd">إلى</label><select id="setEnd" class="${INPUT}">${hourOpts(2, 24, st.endHour)}</select></div></div></section>
+    <section class="${CARD} p-4"><h2 class="font-extrabold mb-1 flex items-center gap-2">${ic('printer', 'w-5 h-5 text-accent-500')}طباعة الجدول</h2><p class="text-sm text-slate-500 dark:text-zinc-400 mb-3">اطبع جدولك الأسبوعي على ورقة A4 أو احفظه كملف PDF: من نافذة الطباعة اختر «حفظ بصيغة PDF».</p>
+      <button type="button" data-act="print" class="${BTN_P} w-full">${ic('printer')}طباعة / حفظ PDF</button></section>
+    <section class="${CARD} p-4"><h2 class="font-extrabold mb-1 flex items-center gap-2">${ic('database', 'w-5 h-5 text-accent-500')}البيانات والنسخ الاحتياطي</h2><p class="text-sm text-slate-500 dark:text-zinc-400 mb-3">بياناتك محفوظة في هذا المتصفح فقط وقد تُمسح. صدّر نسخة احتياطية بشكل دوري.<br>آخر نسخة: <b>${esc(last)}</b></p>
+      <div class="grid grid-cols-2 gap-3"><button type="button" data-act="export" class="${BTN_P}">${ic('download')}تصدير JSON</button><button type="button" data-act="import" class="${BTN_S}">${ic('upload')}استيراد JSON</button></div>
+      <button type="button" data-act="reset" class="${BTN_D} w-full mt-3">${ic('trash-2')}حذف كل البيانات</button></section>
+    <section class="${CARD} p-4"><h2 class="font-extrabold mb-3 flex items-center gap-2">${ic('smartphone', 'w-5 h-5 text-accent-500')}التطبيق</h2><button type="button" data-act="install" class="js-install hidden ${BTN_S} w-full mb-3">${ic('download')}تثبيت التطبيق على الجهاز</button>
+      <p class="text-xs font-bold text-slate-400 dark:text-zinc-500 text-center">${esc(APP_CONFIG.name)} · الإصدار ${esc(APP_CONFIG.version)}</p></section></div>`);
+}
+
+/* ---------- student modal ---------- */
+function renderBadgePick(sel) {
+  const ids = S.badges.map(b => b.id).concat(sel.filter(x => x.indexOf('c:') === 0));
+  return ids.map(id => {
+    const on = sel.includes(id), b = badgeInfo(id);
+    return `<button type="button" data-badge="${esc(id)}" aria-pressed="${on}" class="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-xl text-sm font-bold border transition duration-200 ${on ? TONES[b.tone].chip + ' border-current' : 'bg-white dark:bg-zinc-900 border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400'}">${ic(b.icon, 'w-4 h-4')}${esc(b.label)}</button>`;
+  }).join('');
+}
+function openStudentModal(id) {
+  const st = id ? state.students.find(x => x.id === id) : null;
+  let sel = st ? st.badges.slice() : [];
+  const body = `<form id="stForm" class="space-y-4" novalidate>
+    <div><label class="${LBL}" for="fName">اسم الطالب</label><input id="fName" data-autofocus class="${INPUT}" maxlength="60" autocomplete="off" value="${esc(st ? st.name : '')}"></div>
+    <div><label class="${LBL}" for="fGrade">الصف</label><select id="fGrade" class="${INPUT}">${gradeOptions(st ? st.grade : ui.grade, 'اختر الصف')}</select></div>
+    <div><label class="${LBL}" for="fPhone">رقم ولي الأمر (اختياري)</label><input id="fPhone" type="tel" dir="ltr" class="${INPUT} text-end" maxlength="20" value="${esc(st ? st.phone : '')}"></div>
+    <div><span class="${LBL}">الشارات</span><div id="badgePick" class="flex flex-wrap gap-2">${renderBadgePick(sel)}</div>
+      <div class="mt-3 flex gap-2"><input id="fCustomBadge" class="${INPUT}" maxlength="20" placeholder="شارة مخصصة…" aria-label="شارة مخصصة"><button type="button" id="addBadge" class="${BTN_S} shrink-0" aria-label="إضافة الشارة">${ic('plus')}</button></div></div>
+    <div><label class="${LBL}" for="fNotes">ملاحظات</label><textarea id="fNotes" rows="3" class="${INPUT} py-2 leading-relaxed" maxlength="600">${esc(st ? st.notes : '')}</textarea></div>
+    <div class="flex gap-2 pt-1"><button type="submit" class="${BTN_P} flex-1">${ic('check')}حفظ</button>${st ? `<button type="button" id="delStudent" class="${BTN_D}" aria-label="حذف الطالب">${ic('trash-2')}</button>` : ''}</div></form>`;
+  openModal(st ? 'تعديل الطالب' : 'إضافة طالب', body, $m => {
+    const redraw = () => { $m.find('#badgePick').html(renderBadgePick(sel)); icons(); };
+    $m.on('click', '[data-badge]', function () { const b = $(this).attr('data-badge'); sel = sel.includes(b) ? sel.filter(x => x !== b) : sel.concat(b); redraw(); });
+    const addCustom = () => { const v = $m.find('#fCustomBadge').val().trim(); if (!v) return; const id2 = 'c:' + v; if (!sel.includes(id2)) sel.push(id2); $m.find('#fCustomBadge').val(''); redraw(); };
+    $m.on('click', '#addBadge', addCustom);
+    $m.on('keydown', '#fCustomBadge', e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+    $m.on('submit', '#stForm', function (e) {
+      e.preventDefault();
+      const name = $m.find('#fName').val().trim(), grade = $m.find('#fGrade').val();
+      if (!name) { toast('اكتب اسم الطالب', 'error'); $m.find('#fName').trigger('focus'); return; }
+      if (!grade) { toast('اختر صف الطالب', 'error'); $m.find('#fGrade').trigger('focus'); return; }
+      const data = { name, grade, phone: $m.find('#fPhone').val().trim(), notes: $m.find('#fNotes').val().trim(), badges: sel.slice() };
+      if (st) Object.assign(st, data); else state.students.push(Object.assign({ id: uid() }, data));
+      save(); closeModal(); render(); toast(st ? 'تم تحديث الطالب' : 'تمت إضافة الطالب', 'success');
+    });
+    $m.on('click', '#delStudent', () => askConfirm('حذف الطالب؟', `سيتم حذف «${st.name}» نهائياً. الدروس المخصصة المرتبطة به ستبقى بدون طالب.`, () => {
+      state.students = state.students.filter(x => x.id !== st.id);
+      state.lessons.forEach(l => { if (l.studentId === st.id) l.studentId = ''; });
+      save(); closeModal(); render(); toast('تم حذف الطالب', 'success');
+    }, 'حذف'));
+  });
+}
+
+/* ---------- weekly slot modal ---------- */
+function openSlotModal(slot, preset) {
+  preset = preset || {};
+  const offs = state.settings.daysOff;
+  const free = S.days.map(d => d.id).filter(i => !offs.includes(i));
+  if (!free.length) { toast('كل الأيام عطلة — عدّل أيام العطلة من الإعدادات', 'error'); return; }
+  let day = slot ? slot.day : (preset.day != null ? preset.day : ui.day);
+  if (!slot && offs.includes(day)) day = free[0];
+  let picker;
+  const body = `<form id="slotForm" class="space-y-5" novalidate>
+    <div><label class="${LBL}" for="slotGrade">الصف</label><select id="slotGrade" class="${INPUT}">${gradeOptions(slot ? slot.grade : (preset.grade || ''), 'اختر الصف')}</select></div>
+    <div><span class="${LBL}">اليوم</span><div id="dayPick" class="grid grid-cols-7 gap-1.5"></div></div>
+    <div><span class="${LBL}">الساعات</span><div id="pickHost"></div></div>
+    <div class="flex gap-2"><button type="submit" class="${BTN_P} flex-1">${ic('check')}حفظ الحصة</button>${slot ? `<button type="button" id="delSlot" class="${BTN_D}" aria-label="حذف الحصة">${ic('trash-2')}</button>` : ''}</div></form>`;
+  openModal(slot ? 'تعديل الحصة' : 'حصة أسبوعية جديدة', body, $m => {
+    const renderDays = () => {
+      $m.find('#dayPick').html(S.days.map(d => {
+        const isOff = offs.includes(d.id), on = d.id === day;
+        return `<button type="button" data-pday="${d.id}" ${isOff ? 'disabled' : ''} aria-pressed="${on}" class="min-h-[52px] rounded-xl border text-[11px] font-bold flex flex-col items-center justify-center gap-0.5 transition duration-200 ${on ? 'bg-accent-600 text-white border-transparent dark:bg-accent-500 dark:text-zinc-950' : 'bg-white dark:bg-zinc-900 border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'} ${isOff ? 'opacity-40 cursor-not-allowed' : ''}">${isOff ? ic('coffee', 'w-3.5 h-3.5') : ''}${d.short}</button>`;
+      }).join('')); icons();
+    };
+    picker = makePicker($m.find('#pickHost'), { s: slot ? slot.s : (preset.s == null ? null : preset.s), e: slot ? slot.e : null });
+    const ctx = () => {
+      const occ = {};
+      state.slots.filter(x => x.day === day && (!slot || x.id !== slot.id)).forEach(x => mark(occ, x.s, x.e, gradeLabel(x.grade)));
+      const r = calcRange(occ, picker); picker.setContext(occ, r[0], r[1]);
+    };
+    renderDays(); ctx();
+    $m.on('click', '[data-pday]:not([disabled])', function () { day = +$(this).attr('data-pday'); renderDays(); ctx(); });
+    $m.on('submit', '#slotForm', function (e) {
+      e.preventDefault();
+      const grade = $m.find('#slotGrade').val();
+      if (!grade) { toast('اختر الصف', 'error'); $m.find('#slotGrade').trigger('focus'); return; }
+      const r = picker.get();
+      if (!r) { toast('اختر ساعة البداية والنهاية', 'error'); return; }
+      if (offs.includes(day)) { toast('هذا اليوم عطلة', 'error'); return; }
+      const bad = state.slots.find(x => x.day === day && (!slot || x.id !== slot.id) && x.s < r.e && r.s < x.e);
+      if (bad) { toast('هذا الوقت محجوز لصف آخر', 'error'); ctx(); return; }
+      if (slot) Object.assign(slot, { grade, day, s: r.s, e: r.e }); else state.slots.push({ id: uid(), grade, day, s: r.s, e: r.e });
+      ui.day = day; save(); closeModal(); render(); toast(slot ? 'تم تحديث الحصة' : 'تمت إضافة الحصة', 'success');
+    });
+    $m.on('click', '#delSlot', () => askConfirm('حذف الحصة؟', 'ستُحذف هذه الحصة من الجدول الأسبوعي المتكرر.', () => {
+      state.slots = state.slots.filter(x => x.id !== slot.id); save(); closeModal(); render(); toast('تم حذف الحصة', 'success');
+    }, 'حذف'));
+  });
+}
+
+/* ---------- custom lesson modal ---------- */
+function openLessonModal(lesson, preset) {
+  preset = preset || {};
+  const stPre = preset.studentId ? state.students.find(x => x.id === preset.studentId) : null;
+  const studs = state.students.slice().sort((a, b) => S.grades.findIndex(g => g.id === a.grade) - S.grades.findIndex(g => g.id === b.grade) || a.name.localeCompare(b.name, 'ar'));
+  const selStudent = lesson ? lesson.studentId : (stPre ? stPre.id : '');
+  const selGrade = lesson ? lesson.grade : (stPre ? stPre.grade : '');
+  const dateVal = lesson ? lesson.date : ymd(new Date());
+  let picker;
+  const body = `<form id="lsForm" class="space-y-4" novalidate>
+    <div><label class="${LBL}" for="lsTitle">عنوان الدرس (اختياري)</label><input id="lsTitle" class="${INPUT}" maxlength="60" placeholder="مثال: مراجعة تأهيلية" value="${esc(lesson ? lesson.title : '')}"></div>
+    <div><label class="${LBL}" for="lsStudent">الطالب (اختياري)</label><select id="lsStudent" class="${INPUT}"><option value="">بدون طالب محدد</option>${studs.map(s => `<option value="${esc(s.id)}" ${s.id === selStudent ? 'selected' : ''}>${esc(s.name)} — ${esc(gradeLabel(s.grade))}</option>`).join('')}</select></div>
+    <div><label class="${LBL}" for="lsGrade">الصف</label><select id="lsGrade" class="${INPUT}">${gradeOptions(selGrade, 'اختر الصف')}</select></div>
+    <div><label class="${LBL}" for="lsDate">التاريخ</label><input id="lsDate" type="date" class="${INPUT}" value="${esc(dateVal)}"><p id="lsWarn" class="hidden mt-2 text-sm font-bold text-amber-700 dark:text-amber-300"></p></div>
+    <div><span class="${LBL}">الساعات</span><div id="pickHost"></div></div>
+    <div class="flex gap-2"><button type="submit" class="${BTN_P} flex-1">${ic('check')}حفظ الدرس</button>${lesson ? `<button type="button" id="delLesson" class="${BTN_D}" aria-label="حذف الدرس">${ic('trash-2')}</button>` : ''}</div></form>`;
+  openModal(lesson ? 'تعديل الدرس المخصص' : 'درس مخصص', body, $m => {
+    picker = makePicker($m.find('#pickHost'), { s: lesson ? lesson.s : null, e: lesson ? lesson.e : null });
+    const context = () => {
+      const ds = $m.find('#lsDate').val(), d = parseYmd(ds), occ = {};
+      if (!d) { $m.find('#lsWarn').addClass('hidden'); picker.setContext({}, state.settings.startHour, state.settings.endHour); return { off: false, d: null }; }
+      const dayI = d.getDay(), off = state.settings.daysOff.includes(dayI);
+      if (off) {
+        for (let h = state.settings.startHour; h < state.settings.endHour; h++) occ[h] = 'يوم عطلة';
+        $m.find('#lsWarn').removeClass('hidden').text(`${S.days[dayI].name} يوم عطلتك — اختر تاريخاً آخر.`);
+      } else {
+        $m.find('#lsWarn').addClass('hidden');
+        state.slots.filter(x => x.day === dayI).forEach(x => mark(occ, x.s, x.e, gradeLabel(x.grade) + ' (ثابت)'));
+        state.lessons.filter(x => x.date === ds && (!lesson || x.id !== lesson.id)).forEach(x => mark(occ, x.s, x.e, x.title || 'درس مخصص'));
+      }
+      const r = calcRange(occ, picker); picker.setContext(occ, r[0], r[1]);
+      return { off, d, occ };
+    };
+    context();
+    $m.on('input change', '#lsDate', context);
+    $m.on('change', '#lsStudent', function () { const s = state.students.find(x => x.id === $(this).val()); if (s) $m.find('#lsGrade').val(s.grade); });
+    $m.on('submit', '#lsForm', function (e) {
+      e.preventDefault();
+      const grade = $m.find('#lsGrade').val(), ds = $m.find('#lsDate').val(), c = context();
+      if (!grade) { toast('اختر الصف', 'error'); $m.find('#lsGrade').trigger('focus'); return; }
+      if (!c.d) { toast('اختر التاريخ', 'error'); $m.find('#lsDate').trigger('focus'); return; }
+      if (c.off) { toast('هذا التاريخ يوم عطلة', 'error'); return; }
+      const r = picker.get();
+      if (!r) { toast('اختر ساعة البداية والنهاية', 'error'); return; }
+      for (let i = r.s; i < r.e; i++) if (c.occ[i]) { toast(`الساعة ${hLabel(i)} محجوزة`, 'error'); return; }
+      const data = { title: $m.find('#lsTitle').val().trim(), grade, studentId: $m.find('#lsStudent').val(), date: ds, s: r.s, e: r.e };
+      if (lesson) Object.assign(lesson, data); else state.lessons.push(Object.assign({ id: uid() }, data));
+      ui.day = c.d.getDay(); save(); closeModal(); render(); toast(lesson ? 'تم تحديث الدرس' : 'تمت إضافة الدرس', 'success');
+    });
+    $m.on('click', '#delLesson', () => askConfirm('حذف الدرس؟', 'سيُحذف هذا الدرس المخصص نهائياً.', () => {
+      state.lessons = state.lessons.filter(x => x.id !== lesson.id); save(); closeModal(); render(); toast('تم حذف الدرس', 'success');
+    }, 'حذف'));
+  });
+}
+
+/* ---------- data actions ---------- */
+function exportData() {
+  try {
+    state.meta.lastExport = new Date().toISOString(); save();
+    const payload = { app: APP_CONFIG.name, version: APP_CONFIG.version, exportedAt: state.meta.lastExport, data: state };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'talabati-backup-' + ymd(new Date()) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('تم تصدير النسخة الاحتياطية', 'success'); if (ui.view === 'settings') renderSettings(), icons();
+  } catch (e) { toast('فشل التصدير', 'error'); }
+}
+function importData(file) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    let parsed;
+    try { parsed = JSON.parse(rd.result); } catch (e) { toast('الملف ليس بصيغة JSON صحيحة', 'error'); return; }
+    const raw = parsed && parsed.data ? parsed.data : parsed;
+    if (!raw || typeof raw !== 'object' || (!Array.isArray(raw.students) && !Array.isArray(raw.slots))) { toast('الملف لا يحتوي بيانات طلبتي', 'error'); return; }
+    const n = normalize(raw);
+    askConfirm('استبدال البيانات؟', `سيتم استبدال بياناتك الحالية بـ ${n.students.length} طالب و${n.slots.length} حصة ثابتة و${n.lessons.length} درس مخصص.`, () => {
+      state = n; save(); render(); toast('تم استيراد البيانات', 'success');
+    }, 'استبدال');
+  };
+  rd.onerror = () => toast('تعذّرت قراءة الملف', 'error');
+  rd.readAsText(file);
+}
+
+/* ---------- theme ---------- */
+function applyTheme(dark, persist) {
+  document.documentElement.classList.toggle('dark', dark);
+  $('meta[name="theme-color"]').attr('content', dark ? APP_CONFIG.themeColors.dark : APP_CONFIG.themeColors.light);
+  $('#themeBtn').html(ic(dark ? 'sun' : 'moon')); icons();
+  if (persist) { try { localStorage.setItem(APP_CONFIG.storagePrefix + 'theme', dark ? 'dark' : 'light'); } catch (e) {} }
+}
+
+/* ---------- print weekly schedule ---------- */
+const PRINT_TONES = { emerald: ['#d1fae5', '#047857'], amber: ['#fef3c7', '#b45309'], rose: ['#ffe4e6', '#be123c'] };
+function printSchedule() {
+  const offs = state.settings.daysOff;
+  const slots = state.slots.filter(x => !offs.includes(x.day));
+  if (!slots.length) { toast('لا توجد حصص أسبوعية لطباعتها', 'error'); return; }
+  const lo = Math.min.apply(null, slots.map(x => x.s)), hi = Math.max.apply(null, slots.map(x => x.e));
+  const skip = {};
+  let rows = '';
+  for (let h = lo; h < hi; h++) {
+    let tr = `<tr><td class="hr">${hLabel(h)}</td>`;
+    S.days.forEach(d => {
+      if (offs.includes(d.id)) { if (h === lo) tr += `<td class="pr-off" rowspan="${hi - lo}">عطلة</td>`; return; }
+      if (skip[d.id + '-' + h]) return;
+      const sl = slots.find(x => x.day === d.id && x.s === h);
+      if (!sl) { tr += '<td></td>'; return; }
+      for (let i = h + 1; i < sl.e; i++) skip[d.id + '-' + i] = true;
+      const g = gradeById(sl.grade), tone = PRINT_TONES[stageOf(g).tone];
+      const all = studentsIn(sl.grade).map(x => x.name), cap = (sl.e - sl.s) >= 2 ? 8 : 4;
+      const names = all.slice(0, cap).join('، ') + (all.length > cap ? ` +${all.length - cap}` : '');
+      tr += `<td rowspan="${sl.e - sl.s}" class="pr-slot" style="background:${tone[0]};color:${tone[1]};border-color:${tone[1]}"><b>${esc(g.label)}</b><small>${esc(hLabel(sl.s))} – ${esc(hLabel(sl.e))}${names ? '<br>' + esc(names) : ''}</small></td>`;
+    });
+    rows += tr + '</tr>';
+  }
+  const today = ymd(startOfDay(new Date()));
+  const ups = state.lessons.filter(x => x.date >= today).sort((a, b) => a.date.localeCompare(b.date) || a.s - b.s).slice(0, 12);
+  const lessonsHtml = ups.length ? `<section class="pr-sec"><h2>دروس مخصصة قادمة</h2><table class="pr-list"><thead><tr><th>التاريخ</th><th>الوقت</th><th>الصف</th><th>الدرس</th><th>الطالب</th></tr></thead><tbody>${ups.map(l => {
+    const st = l.studentId && state.students.find(x => x.id === l.studentId), d = parseYmd(l.date);
+    return `<tr><td>${esc(d ? dateLabel(d) : l.date)}</td><td>${hLabel(l.s)} – ${hLabel(l.e)}</td><td>${esc(gradeLabel(l.grade))}</td><td>${esc(l.title || 'درس مخصص')}</td><td>${esc(st ? st.name : '—')}</td></tr>`;
+  }).join('')}</tbody></table></section>` : '';
+  $('#printRoot').html(`<div class="pr-head"><h1>جدول طلبتي الأسبوعي</h1><span>${esc(hoursText(weeklyHours()))} أسبوعياً · طُبع ${esc(dateLabel(new Date()))}</span></div>
+    <table class="pr-table"><colgroup><col style="width:16mm">${S.days.map(() => '<col>').join('')}</colgroup>
+    <thead><tr><th>الساعة</th>${S.days.map(d => `<th>${d.name}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>${lessonsHtml}`);
+  const prev = document.title;
+  document.title = 'جدول-طلبتي-' + ymd(new Date());
+  const done = () => { window.removeEventListener('afterprint', done); document.title = prev; $('#printRoot').empty(); };
+  window.addEventListener('afterprint', done);
+  setTimeout(() => { try { window.print(); } catch (e) { done(); toast('تعذّرت الطباعة', 'error'); } }, 80);
+}
+
+/* ---------- events ---------- */
+$(document).on('click', '[data-close]', closeModal);
+$(document).on('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('#confirmRoot').children().length) closeConfirm(); else if ($('#modalRoot').children().length) closeModal();
+});
+$('#themeBtn').on('click', () => applyTheme(!document.documentElement.classList.contains('dark'), true));
+
+$(document).on('click', '[data-act]', function () {
+  const $t = $(this), act = $t.attr('data-act'), id = $t.attr('data-id');
+  switch (act) {
+    case 'go': ui.view = $t.attr('data-view'); window.scrollTo(0, 0); render(); break;
+    case 'add-student': openStudentModal(null); break;
+    case 'edit-student': openStudentModal(id); break;
+    case 'student-lesson': openLessonModal(null, { studentId: id }); break;
+    case 'add-slot': openSlotModal(null, {}); break;
+    case 'add-at':
+      if (state.settings.daysOff.includes(ui.day)) { toast('هذا اليوم عطلة', 'info'); break; }
+      openSlotModal(null, { day: ui.day, s: +$t.attr('data-h') }); break;
+    case 'add-lesson': openLessonModal(null, {}); break;
+    case 'edit-ev': {
+      if ($t.attr('data-type') === 'slot') { const sl = state.slots.find(x => x.id === id); if (sl) openSlotModal(sl); }
+      else { const l = state.lessons.find(x => x.id === id); if (l) openLessonModal(l); }
+      break;
+    }
+    case 'sel-day': ui.day = +$t.attr('data-day'); renderSchedule(); icons(); break;
+    case 'toggle-off': {
+      const d = +$t.attr('data-day'), offs = state.settings.daysOff;
+      if (offs.includes(d)) state.settings.daysOff = offs.filter(x => x !== d);
+      else {
+        if (offs.length >= 6) { toast('لا يمكن أن تكون كل الأيام عطلة', 'error'); break; }
+        state.settings.daysOff = offs.concat(d);
+        if (state.slots.some(x => x.day === d)) toast('حصص هذا اليوم الثابتة ستُوقف طالما هو عطلة', 'info');
+      }
+      save(); renderSettings(); icons(); break;
+    }
+    case 'print': printSchedule(); break;
+    case 'export': exportData(); break;
+    case 'import': $('#importFile').trigger('click'); break;
+    case 'reset': askConfirm('حذف كل البيانات؟', 'سيتم حذف الطلاب والجدول والإعدادات نهائياً. يُنصح بتصدير نسخة احتياطية أولاً.', () => { state = defaultState(); save(); render(); toast('تم حذف البيانات', 'success'); }, 'حذف الكل'); break;
+    case 'install':
+      if (!deferredPrompt) break;
+      deferredPrompt.prompt();
+      Promise.resolve(deferredPrompt.userChoice).then(() => { deferredPrompt = null; $('.js-install').addClass('hidden'); }).catch(() => {});
+      break;
+  }
+});
+$(document).on('input', '#stSearch', function () { ui.q = this.value; renderStudentList(); });
+$(document).on('change', '#stGrade', function () { ui.grade = this.value; renderStudentList(); });
+$(document).on('change', '#setStart, #setEnd', function () {
+  const s = +$('#setStart').val(), e = +$('#setEnd').val();
+  if (e - s < 2) { toast('يجب أن يكون النطاق ساعتين على الأقل', 'error'); renderSettings(); icons(); return; }
+  state.settings.startHour = s; state.settings.endHour = e; save(); toast('تم حفظ ساعات العمل', 'success');
+});
+$('#importFile').on('change', function () { const f = this.files && this.files[0]; if (f) importData(f); this.value = ''; });
+
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('.js-install').removeClass('hidden'); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; $('.js-install').addClass('hidden'); toast('تم تثبيت التطبيق', 'success'); });
+
+try {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const onMq = e => { let t = null; try { t = localStorage.getItem(APP_CONFIG.storagePrefix + 'theme'); } catch (x) {} if (!t) applyTheme(e.matches, false); };
+  if (mq.addEventListener) mq.addEventListener('change', onMq);
+} catch (e) {}
+
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing; if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            toast('يتوفر إصدار جديد من التطبيق', 'info', { label: 'تحديث', duration: 15000, action: () => nw.postMessage('SKIP_WAITING') });
+          }
+        });
+      });
+    }).catch(() => {});
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadController || reloading) return; reloading = true; location.reload(); });
+  });
+}
+
+/* ---------- init ---------- */
+state = normalize(readKey('data', null));
+applyTheme(document.documentElement.classList.contains('dark'), false);
+render();
+setInterval(() => { if (ui.view === 'home' && !$('#modalRoot').children().length && !$('#confirmRoot').children().length) { renderHome(); icons(); } }, 30000);
+
+})(jQuery);
+
+/*
+=============================== sw.js ===============================
+const VERSION = 'v1.0.0'; // bump on every release so installed apps refresh
+const CACHE = 'talabati-' + VERSION;
+const SHELL = ['./', './logo.jpg', './manifest.webmanifest'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).catch(() => {}));
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k.startsWith('talabati-') && k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', e => { if (e.data === 'SKIP_WAITING') self.skipWaiting(); });
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const isShell = sameOrigin && (req.mode === 'navigate' || SHELL.some(p => new URL(p, self.location.href).pathname === url.pathname));
+  if (isShell) {
+    // cache-first for the app shell
+    e.respondWith(
+      caches.match(req).then(hit => hit || fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match('./')))
+    );
+  } else {
+    // network-first for everything else
+    e.respondWith(
+      fetch(req).then(res => {
+        if (res && (res.status === 200 || res.type === 'opaque')) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+  }
+});
+
+=========================== manifest.webmanifest ===========================
+{
+  "name": "طلبتي",
+  "short_name": "طلبتي",
+  "description": "إدارة طلاب المدرس الخصوصي وجدول الدروس الأسبوعي",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "logo.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" },
+    { "src": "logo.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+  ]
+}
+*/
+</script>
+</body>
+</html>
